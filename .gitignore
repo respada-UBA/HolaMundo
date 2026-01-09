@@ -1,0 +1,4 @@
+# compiled java
+*.class
+# build folders
+/old_build/
