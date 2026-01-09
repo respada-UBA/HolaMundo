@@ -29,7 +29,7 @@ public class Utils {
     // Degenerate bases: approximate by treating N as average (A/T/G/C => treat as 2)
     public static double wallaceTm(String seq) {
         seq = seq.toUpperCase();
-        int at = 0, gc = 0;
+        double at = 0, gc = 0;
         for (char c : seq.toCharArray()) {
             switch (c) {
                 case 'A': case 'T':
@@ -39,7 +39,7 @@ public class Utils {
                 case 'N':
                     at += 1; gc += 1; break; // average
                 case 'K':
-                    // K = G or T => treat as 0.5G + 0.5T: add 0.5 to GC and 0.5 to AT
+                    // K = G or T => treat as 0.5G + 0.5T
                     at += 0.5; gc += 0.5; break;
                 default:
                     at += 1; gc += 1; break;

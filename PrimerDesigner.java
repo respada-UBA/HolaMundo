@@ -11,7 +11,7 @@ public class PrimerDesigner {
 
     public PrimerDesigner(PrimerDesignConfig cfg) {
         this.cfg = cfg;
-        cfg.inputSequence = cfg.inputSequence.toUpperCase();
+        if (this.cfg.inputSequence != null) this.cfg.inputSequence = this.cfg.inputSequence.toUpperCase().replaceAll("\\s+", "");
     }
 
     // Main entry: return list of primers generated
@@ -38,7 +38,7 @@ public class PrimerDesigner {
     private int computeORFAACount() {
         int end = (cfg.orfEndZeroBased > 0 ? cfg.orfEndZeroBased : cfg.inputSequence.length()-1);
         int len = end - cfg.orfStartZeroBased + 1;
-        return len / 3;
+        return Math.max(0, len / 3);
     }
 
     // For NNK: create degenerate primer pair for each AA position in positions
@@ -51,7 +51,7 @@ public class PrimerDesigner {
             String right = substringSafe(cfg.inputSequence, codonNucIndex + 3, codonNucIndex + 3 + cfg.primerOverhang3);
             String mutatedCodon = "NNK";
             String fwdPrimer = left + mutatedCodon + right;
-            String revPrimer = Utils.revComp(left) + Utils.revComp(mutatedCodon) + Utils.revComp(right); // not biologically the typical way to place mutation in reverse primer but a simple pair
+            String revPrimer = Utils.revComp(fwdPrimer); // reverse primer = reverse-complement of forward oligo
             String fwdName = String.format("%s%03d_F", cfg.primerNamePrefix, aaPos);
             String revName = String.format("%s%03d_R", cfg.primerNamePrefix, aaPos);
             out.add(new Primer(fwdName, fwdPrimer, Primer.Direction.FORWARD, aaPos));
@@ -61,7 +61,7 @@ public class PrimerDesigner {
     }
 
     // For fixed mutations: expect strings like "K1M" meaning originalAA position newAA
-    // We'll parse position as digits in the middle
+    // We'll parse position as digits in the middle and pick a representative codon for the new AA.
     private List<Primer> designFixedMutations(List<String> mutList) {
         List<Primer> out = new ArrayList<>();
         Pattern p = Pattern.compile("^([A-Za-z])(\\d+)([A-Za-z])$");
@@ -78,7 +78,7 @@ public class PrimerDesigner {
             String left = substringSafe(cfg.inputSequence, codonNucIndex - cfg.primerOverhang5, codonNucIndex);
             String right = substringSafe(cfg.inputSequence, codonNucIndex + 3, codonNucIndex + 3 + cfg.primerOverhang3);
             String fwdPrimer = left + codon + right;
-            String revPrimer = Utils.revComp(left) + Utils.revComp(codon) + Utils.revComp(right);
+            String revPrimer = Utils.revComp(fwdPrimer);
             out.add(new Primer(cfg.primerNamePrefix + aaPos + "_" + orig + "to" + newAA + "_F", fwdPrimer, Primer.Direction.FORWARD, aaPos));
             out.add(new Primer(cfg.primerNamePrefix + aaPos + "_" + orig + "to" + newAA + "_R", revPrimer, Primer.Direction.REVERSE, aaPos));
         }
@@ -113,6 +113,7 @@ public class PrimerDesigner {
     }
 
     private String substringSafe(String s, int startInclusive, int endExclusive) {
+        if (s == null) return "";
         if (startInclusive < 0) startInclusive = 0;
         if (endExclusive > s.length()) endExclusive = s.length();
         if (startInclusive >= endExclusive) return "";
