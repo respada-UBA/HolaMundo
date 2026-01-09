@@ -2,3 +2,4 @@
 *.class
 # build folders
 /old_build/
+*.class
