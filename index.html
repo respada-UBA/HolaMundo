@@ -6,9 +6,11 @@
   <title>Primer Designer (PyScript)</title>
 
   <!-- PyScript -->
-  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
-  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
-
+  <!--<link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />-->
+  <!--<script defer src="https://pyscript.net/latest/pyscript.js"></script>-->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2025.11.2/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2025.11.2/core.js"></script>
+  
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -17,7 +19,7 @@
 
     <section class="panel">
       <h2>Input DNA & ORF</h2>
-      <label>Full DNA sequence (single line or multi-line):</label>
+      <label for="input_sequence">Full DNA sequence (single line or multi-line):</label>
       <textarea id="input_sequence" rows="4"></textarea>
 
       <div class="grid-3">
@@ -47,10 +49,7 @@
         </label>
       </div>
 
-      <div id="fixed_options" style="display:none">
-        <label>Mutations list (comma separated like K1M,P2L):</label>
-        <input id="mutations_list" type="text" placeholder="e.g. K1M,P2L" />
-      </div>
+      <div id="fixed_options" style="display:none"> <label for="mutations_list">Mutations list (comma separated like K1M,P2L):</label> <input id="mutations_list" type="text" placeholder="e.g. K1M,P2L" /> </div>
     </section>
 
     <section class="panel actions">
@@ -74,240 +73,241 @@
   </main>
 
   <py-script>
-    from js import document
-    import random
-    import re
+from js import document
+import random
+import re
 
-    genetic_code = {
-        'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-        'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R', 'AGA': 'R', 'AGG': 'R',
-        'AAT': 'N', 'AAC': 'N',
-        'GAT': 'D', 'GAC': 'D',
-        'TGT': 'C', 'TGC': 'C',
-        'CAA': 'Q', 'CAG': 'Q',
-        'GAA': 'E', 'GAG': 'E',
-        'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
-        'CAT': 'H', 'CAC': 'H',
-        'ATT': 'I', 'ATC': 'I', 'ATA': 'I',
-        'TTA': 'L', 'TTG': 'L', 'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
-        'AAA': 'K', 'AAG': 'K',
-        'ATG': 'M',
-        'TTT': 'F', 'TTC': 'F',
-        'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-        'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S', 'AGT': 'S', 'AGC': 'S',
-        'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-        'TGG': 'W',
-        'TAT': 'Y', 'TAC': 'Y',
-        'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
-        'TAA': '*', 'TAG': '*', 'TGA': '*'
-    }
+genetic_code = {
+    'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
+    'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R', 'AGA': 'R', 'AGG': 'R',
+    'AAT': 'N', 'AAC': 'N',
+    'GAT': 'D', 'GAC': 'D',
+    'TGT': 'C', 'TGC': 'C',
+    'CAA': 'Q', 'CAG': 'Q',
+    'GAA': 'E', 'GAG': 'E',
+    'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
+    'CAT': 'H', 'CAC': 'H',
+    'ATT': 'I', 'ATC': 'I', 'ATA': 'I',
+    'TTA': 'L', 'TTG': 'L', 'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
+    'AAA': 'K', 'AAG': 'K',
+    'ATG': 'M',
+    'TTT': 'F', 'TTC': 'F',
+    'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
+    'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S', 'AGT': 'S', 'AGC': 'S',
+    'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+    'TGG': 'W',
+    'TAT': 'Y', 'TAC': 'Y',
+    'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
+    'TAA': '*', 'TAG': '*', 'TGA': '*'
+}
 
-    def normalize_seq(s):
-        # remove whitespace and keep ACGT (case-insensitive)
-        return re.sub(r'[^ACGTacgt]', '', s).upper()
+def normalize_seq(s):
+    # remove whitespace and keep ACGT (case-insensitive)
+    return re.sub(r'[^ACGTacgt]', '', s).upper()
 
-    def translate_dna_to_amino_acids(dna_sequence, code):
-        amino_acid_sequence = []
-        if len(dna_sequence) % 3 != 0:
-            raise ValueError("DNA sequence length must be a multiple of 3 for translation.")
-        for i in range(0, len(dna_sequence), 3):
-            codon = dna_sequence[i:i+3].upper()
-            amino_acid = code.get(codon)
-            if amino_acid is None:
-                raise ValueError(f"Unknown codon encountered: {codon}")
-            elif amino_acid == '*':
-                break
-            else:
-                amino_acid_sequence.append(amino_acid)
-        return ''.join(amino_acid_sequence)
-
-    def amino_acid_pos_to_codon_start_dna_pos(amino_acid_number):
-        if amino_acid_number < 1:
-            raise ValueError("Amino acid number must be 1 or greater.")
-        return (amino_acid_number - 1) * 3
-
-    def get_codons_for_amino_acid(target_amino_acid, code):
-        matching_codons = []
-        for codon, amino_acid in code.items():
-            if amino_acid == target_amino_acid:
-                matching_codons.append(codon)
-        return matching_codons
-
-    def show_status(msg, error=False):
-        s = document.getElementById('status')
-        s.innerText = msg
-        s.style.color = 'red' if error else '#0b5'
-
-    def clear_all(*args):
-        document.getElementById('translated').innerText = ''
-        document.getElementById('table_container').innerHTML = ''
-        show_status('Cleared.')
-
-    def parse_positions_list(text):
-        text = text.strip()
-        if not text:
-            return []
-        parts = [p.strip() for p in text.split(',') if p.strip()]
-        res = []
-        for p in parts:
-            try:
-                n = int(p)
-                res.append(n)
-            except:
-                continue
-        return res
-
-    def parse_mutations_list(text):
-        text = text.strip()
-        if not text:
-            return []
-        parts = [p.strip() for p in text.split(',') if p.strip()]
-        return parts
-
-    def generate_table_html(rows):
-        if not rows:
-            return "<div>No primers generated.</div>"
-        html = ['<table class="result-table"><thead><tr><th>Primer name</th><th>Primer sequence</th></tr></thead><tbody>']
-        for r in rows:
-            html.append(f"<tr><td>{r['primer_name']}</td><td><code>{r['primer_sequence']}</code></td></tr>")
-        html.append('</tbody></table>')
-        return ''.join(html)
-
-    def generate_primers(*args):
-        try:
-            # collect inputs
-            raw_seq = document.getElementById('input_sequence').value or ''
-            input_sequence = normalize_seq(raw_seq)
-            if not input_sequence:
-                show_status('Provide a valid DNA sequence (ACGT).', error=True)
-                return
-
-            orf_start = int(document.getElementById('orf_start').value)
-            orf_end = int(document.getElementById('orf_end').value)
-            primer_overhang_5 = int(document.getElementById('primer_overhang_5').value)
-            primer_overhang_3 = int(document.getElementById('primer_overhang_3').value)
-            primer_name_prefix = document.getElementById('primer_name_prefix').value or 'pr_'
-            mutation_type = document.getElementById('mutation_type').value
-
-            l_input = len(input_sequence)
-            orf_length = orf_end - orf_start + 1
-            if orf_length <= 0:
-                show_status('Invalid ORF bounds.', error=True)
-                return
-            if orf_length % 3 != 0:
-                show_status('ORF length is not a multiple of 3.', error=True)
-                return
-
-            # get orf_sequence (1-based positions)
-            orf_sequence = input_sequence[(orf_start-1):orf_end]
-            translated_sequence = translate_dna_to_amino_acids(orf_sequence, genetic_code)
-            document.getElementById('translated').innerText = translated_sequence
-
-            # determine mutation positions
-            mutations_positions = []
-            if mutation_type == 'NNK':
-                scan = document.getElementById('scan').checked
-                if scan:
-                    mutations_positions = list(range(1, len(translated_sequence)+1))
-                else:
-                    positions_list = parse_positions_list(document.getElementById('positions_list').value)
-                    mutations_positions = [p for p in positions_list if 1 <= p <= len(translated_sequence)]
-            else:  # fixed
-                mlist = parse_mutations_list(document.getElementById('mutations_list').value)
-                mutations_positions = []
-                for mutation_str in mlist:
-                    # expected format like K1M
-                    if len(mutation_str) < 3:
-                        continue
-                    # extract digits in middle
-                    pos_str = ''.join(ch for ch in mutation_str if ch.isdigit())
-                    try:
-                        pos = int(pos_str)
-                    except:
-                        continue
-                    mutations_positions.append(pos)
-
-            if not mutations_positions:
-                show_status('No mutation positions determined. Check inputs.', error=True)
-                return
-
-            # Check primer bounds
-            first_mutation = min(mutations_positions)
-            first_mutation_dna_pos = amino_acid_pos_to_codon_start_dna_pos(first_mutation) + orf_start
-            last_mutation = max(mutations_positions)
-            last_mutation_dna_pos = amino_acid_pos_to_codon_start_dna_pos(last_mutation) + orf_start
-
-            ov5 = first_mutation_dna_pos - primer_overhang_5
-            ov3 = last_mutation_dna_pos + 2 + primer_overhang_3
-
-            if ov5 < 1:
-                show_status(f'First primer overhang extends before start of sequence (ov5={ov5}).', error=True)
-                return
-            if ov3 > l_input:
-                show_status(f'Last primer overhang extends beyond sequence length (ov3={ov3}, len={l_input}).', error=True)
-                return
-
-            # generate primers list (without pandas)
-            primers = []
-            for idx, position in enumerate(mutations_positions):
-                mutation_codon_abs_start = amino_acid_pos_to_codon_start_dna_pos(position) + orf_start
-                start_primer_abs_idx = mutation_codon_abs_start - primer_overhang_5 - 1
-                end_primer_abs_idx = mutation_codon_abs_start + 2 + primer_overhang_3
-
-                primer = input_sequence[start_primer_abs_idx:end_primer_abs_idx]
-                primer_prefix = primer[0:primer_overhang_5]
-                primer_suffix = primer[primer_overhang_5 + 3:]
-
-                if mutation_type == 'fixed':
-                    # map by order: if user provided e.g. K1M,P2L then use that mapping
-                    try:
-                        mutation_str = parse_mutations_list(document.getElementById('mutations_list').value)[idx]
-                    except IndexError:
-                        mutation_str = None
-                    if mutation_str:
-                        primer_name = primer_name_prefix + mutation_str
-                        intended_mutation = mutation_str[-1]
-                        codons = get_codons_for_amino_acid(intended_mutation, genetic_code)
-                        if len(codons) > 1:
-                            codon = random.choice(codons)
-                        elif len(codons) == 1:
-                            codon = codons[0]
-                        else:
-                            show_status(f'No codons found for amino acid {intended_mutation}', error=True)
-                            return
-                    else:
-                        primer_name = primer_name_prefix + f'{position}_fixed'
-                        codon = 'NNN'
-                else:
-                    codon = 'NNK'
-                    primer_name = primer_name_prefix + str(position) + '_NNK'
-
-                mutated_primer = primer_prefix + codon + primer_suffix
-                primers.append({'primer_name': primer_name, 'primer_sequence': mutated_primer})
-
-            # render table
-            html = generate_table_html(primers)
-            document.getElementById('table_container').innerHTML = html
-            show_status(f'Generated {len(primers)} primers.')
-        except Exception as e:
-            show_status(f'Error: {str(e)}', error=True)
-
-    # wire mutation_type selector to show/hide options
-    def on_mutation_type_change(*_):
-        mt = document.getElementById('mutation_type').value
-        if mt == 'NNK':
-            document.getElementById('nnk_options').style.display = 'block'
-            document.getElementById('fixed_options').style.display = 'none'
+def translate_dna_to_amino_acids(dna_sequence, code):
+    amino_acid_sequence = []
+    if len(dna_sequence) % 3 != 0:
+        raise ValueError("DNA sequence length must be a multiple of 3 for translation.")
+    for i in range(0, len(dna_sequence), 3):
+        codon = dna_sequence[i:i+3].upper()
+        amino_acid = code.get(codon)
+        if amino_acid is None:
+            raise ValueError(f"Unknown codon encountered: {codon}")
+        elif amino_acid == '*':
+            break
         else:
-            document.getElementById('nnk_options').style.display = 'none'
-            document.getElementById('fixed_options').style.display = 'block'
+            amino_acid_sequence.append(amino_acid)
+    return ''.join(amino_acid_sequence)
 
-    # attach the change handler
-    document.getElementById('mutation_type').addEventListener('change', on_mutation_type_change)
+def amino_acid_pos_to_codon_start_dna_pos(amino_acid_number):
+    if amino_acid_number < 1:
+        raise ValueError("Amino acid number must be 1 or greater.")
+    return (amino_acid_number - 1) * 3
 
-    # provide a default sequence (your original sequence) as an example
-    default_seq = "tttaatgacccacgtcaacttgaagaagtcattgaccttcttgaggtatatcatgagaaaaagaatgtgattgaagagaaaattaaagctcgcttcattgcaaataaaaatactgtatttgaatggcttacgtggaatggcttcattattcttggaaatgctttagaatataaaaacaacttcgttattgatgaagagttacaaccagttactcatgccgcaggtaaccagcctgatatggaaattatatatgaagactttattgttcttggtgaagtaacaacttctaagggagcaacccagtttaagatggaatcagaaccagtaacaaggcattatttaaacaagaaaaaagaattagaaaagcaaggagtagagaaagaactatattgtttattcattgcgccagaaatcaataagaatacttttgaggagtttatgaaatacaatattgttcaaaacacaagaattatccctctctcattaaaacagtttaacatgctcctaatggtacagaagaaattaattgaaaaaggaagaaggttatcttcttatgatattaagaatctgatggtctcattatatcgaacaactatagagtgtgaaagaaaatatactcaaattaaagctggtttagaagaaactttaaataattgggttgttgacaaggaggtaaggtttccatggcaccaccaccaccaccac"
-    document.getElementById('input_sequence').value = default_seq
+def get_codons_for_amino_acid(target_amino_acid, code):
+    matching_codons = []
+    for codon, amino_acid in code.items():
+        if amino_acid == target_amino_acid:
+            matching_codons.append(codon)
+    return matching_codons
+
+def show_status(msg, error=False):
+    s = document.getElementById('status')
+    s.innerText = msg
+    s.style.color = 'red' if error else '#0b5'
+
+def clear_all(*args):
+    document.getElementById('translated').innerText = ''
+    document.getElementById('table_container').innerHTML = ''
+    show_status('Cleared.')
+
+def parse_positions_list(text):
+    text = text.strip()
+    if not text:
+        return []
+    parts = [p.strip() for p in text.split(',') if p.strip()]
+    res = []
+    for p in parts:
+        try:
+            n = int(p)
+            res.append(n)
+        except:
+            continue
+    return res
+
+def parse_mutations_list(text):
+    text = text.strip()
+    if not text:
+        return []
+    parts = [p.strip() for p in text.split(',') if p.strip()]
+    return parts
+    
+def generate_table_html(rows): 
+    if not rows: 
+        return "<div>No primers generated.</div>" 
+    html = ['<table class="result-table"><thead><tr><th>Primer name</th><th>Primer sequence</th></tr></thead><tbody>'] 
+    for r in rows: 
+        html.append("<tr><td>{}</td><td><code>{}</code></td></tr>".format(r['primer_name'], r['primer_sequence']))
+    html.append('</tbody></table>') 
+    return ''.join(html)
+
+
+def generate_primers(*args):
+    try:
+        # collect inputs
+        raw_seq = document.getElementById('input_sequence').value or ''
+        input_sequence = normalize_seq(raw_seq)
+        if not input_sequence:
+            show_status('Provide a valid DNA sequence (ACGT).', error=True)
+            return
+
+        orf_start = int(document.getElementById('orf_start').value)
+        orf_end = int(document.getElementById('orf_end').value)
+        primer_overhang_5 = int(document.getElementById('primer_overhang_5').value)
+        primer_overhang_3 = int(document.getElementById('primer_overhang_3').value)
+        primer_name_prefix = document.getElementById('primer_name_prefix').value or 'pr_'
+        mutation_type = document.getElementById('mutation_type').value
+
+        l_input = len(input_sequence)
+        orf_length = orf_end - orf_start + 1
+        if orf_length <= 0:
+            show_status('Invalid ORF bounds.', error=True)
+            return
+        if orf_length % 3 != 0:
+            show_status('ORF length is not a multiple of 3.', error=True)
+            return
+
+        # get orf_sequence (1-based positions)
+        orf_sequence = input_sequence[(orf_start-1):orf_end]
+        translated_sequence = translate_dna_to_amino_acids(orf_sequence, genetic_code)
+        document.getElementById('translated').innerText = translated_sequence
+
+        # determine mutation positions
+        mutations_positions = []
+        if mutation_type == 'NNK':
+            scan = document.getElementById('scan').checked
+            if scan:
+                mutations_positions = list(range(1, len(translated_sequence)+1))
+            else:
+                positions_list = parse_positions_list(document.getElementById('positions_list').value)
+                mutations_positions = [p for p in positions_list if 1 <= p <= len(translated_sequence)]
+        else:  # fixed
+            mlist = parse_mutations_list(document.getElementById('mutations_list').value)
+            mutations_positions = []
+            for mutation_str in mlist:
+                # expected format like K1M
+                if len(mutation_str) < 3:
+                    continue
+                # extract digits in middle
+                pos_str = ''.join(ch for ch in mutation_str if ch.isdigit())
+                try:
+                    pos = int(pos_str)
+                except:
+                    continue
+                mutations_positions.append(pos)
+
+        if not mutations_positions:
+            show_status('No mutation positions determined. Check inputs.', error=True)
+            return
+
+        # Check primer bounds
+        first_mutation = min(mutations_positions)
+        first_mutation_dna_pos = amino_acid_pos_to_codon_start_dna_pos(first_mutation) + orf_start
+        last_mutation = max(mutations_positions)
+        last_mutation_dna_pos = amino_acid_pos_to_codon_start_dna_pos(last_mutation) + orf_start
+
+        ov5 = first_mutation_dna_pos - primer_overhang_5
+        ov3 = last_mutation_dna_pos + 2 + primer_overhang_3
+
+        if ov5 < 1:
+            show_status(f'First primer overhang extends before start of sequence (ov5={ov5}).', error=True)
+            return
+        if ov3 > l_input:
+            show_status(f'Last primer overhang extends beyond sequence length (ov3={ov3}, len={l_input}).', error=True)
+            return
+
+        # generate primers list (without pandas)
+        primers = []
+        for idx, position in enumerate(mutations_positions):
+            mutation_codon_abs_start = amino_acid_pos_to_codon_start_dna_pos(position) + orf_start
+            start_primer_abs_idx = mutation_codon_abs_start - primer_overhang_5 - 1
+            end_primer_abs_idx = mutation_codon_abs_start + 2 + primer_overhang_3
+
+            primer = input_sequence[start_primer_abs_idx:end_primer_abs_idx]
+            primer_prefix = primer[0:primer_overhang_5]
+            primer_suffix = primer[primer_overhang_5 + 3:]
+
+            if mutation_type == 'fixed':
+                # map by order: if user provided e.g. K1M,P2L then use that mapping
+                try:
+                    mutation_str = parse_mutations_list(document.getElementById('mutations_list').value)[idx]
+                except IndexError:
+                    mutation_str = None
+                if mutation_str:
+                    primer_name = gasprimer_name_prefix + mutation_str
+                    intended_mutation = mutation_str[-1]
+                    codons = get_codons_for_amino_acid(intended_mutation, genetic_code)
+                    if len(codons) > 1:
+                        codon = random.choice(codons)
+                    elif len(codons) == 1:
+                        codon = codons[0]
+                    else:
+                        show_status(f'No codons found for amino acid {intended_mutation}', error=True)
+                        return
+                else:
+                    primer_name = primer_name_prefix + f'{position}_fixed'
+                    codon = 'NNN'
+            else:
+                codon = 'NNK'
+                primer_name = primer_name_prefix + str(position) + '_NNK'
+
+            mutated_primer = primer_prefix + codon + primer_suffix
+            primers.append({'primer_name': primer_name, 'primer_sequence': mutated_primer})
+
+        # render table
+        html = generate_table_html(primers)
+        document.getElementById('table_container').innerHTML = html
+        show_status(f'Generated {len(primers)} primers.')
+    except Exception as e:
+        show_status(f'Error: {str(e)}', error=True)
+
+# wire mutation_type selector to show/hide options
+def on_mutation_type_change(*_):
+    mt = document.getElementById('mutation_type').value
+    if mt == 'NNK':
+        document.getElementById('nnk_options').style.display = 'block'
+        document.getElementById('fixed_options').style.display = 'none'
+    else:
+        document.getElementById('nnk_options').style.display = 'none'
+        document.getElementById('fixed_options').style.display = 'block'
+
+# attach the change handler
+document.getElementById('mutation_type').addEventListener('change', on_mutation_type_change)
+
+# provide a default sequence (your original sequence) as an example
+default_seq = "tttaatgacccacgtcaacttgaagaagtcattgaccttcttgaggtatatcatgagaaaaagaatgtgattgaagagaaaattaaagctcgcttcattgcaaataaaaatactgtatttgaatggcttacgtggaatggcttcattattcttggaaatgctttagaatataaaaacaacttcgttattgatgaagagttacaaccagttactcatgccgcaggtaaccagcctgatatggaaattatatatgaagactttattgttcttggtgaagtaacaacttctaagggagcaacccagtttaagatggaatcagaaccagtaacaaggcattatttaaacaagaaaaaagaattagaaaagcaaggagtagagaaagaactatattgtttattcattgcgccagaaatcaataagaatacttttgaggagtttatgaaatacaatattgttcaaaacacaagaattatccctctctcattaaaacagtttaacatgctcctaatggtacagaagaaattaattgaaaaaggaagaaggttatcttcttatgatattaagaatctgatggtctcattatatcgaacaactatagagtgtgaaagaaaatatactcaaattaaagctggtttagaagaaactttaaataattgggttgttgacaaggaggtaaggtttccatggcaccaccaccaccaccac"
+document.getElementById('input_sequence').value = default_seq
 
   </py-script>
 
